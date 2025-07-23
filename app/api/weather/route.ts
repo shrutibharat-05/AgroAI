@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 const API_KEY = "73b48ecfece17f28d57b8f06a4dd9306"
-const URL = "https://api.openweathermap.org/data/2.5/weather"
+const WEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 export async function GET(request: NextRequest) {
   try {
+    // Using the global URL constructor (no shadowing now)
     const { searchParams } = new URL(request.url)
     const city = searchParams.get("city")
     const lat = searchParams.get("lat")
@@ -14,10 +15,10 @@ export async function GET(request: NextRequest) {
 
     if (lat && lon) {
       // Use coordinates for geolocation
-      requestUrl = `${URL}?lat=${lat}&lon=${lon}&appid=${API_KEY}`
+      requestUrl = `${WEATHER_API_URL}?lat=${lat}&lon=${lon}&appid=${API_KEY}`
     } else if (city) {
       // Use city name
-      requestUrl = `${URL}?q=${city}&appid=${API_KEY}`
+      requestUrl = `${WEATHER_API_URL}?q=${city}&appid=${API_KEY}`
     } else {
       return NextResponse.json({ message: "City parameter or coordinates are required" }, { status: 400 })
     }

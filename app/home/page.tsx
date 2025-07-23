@@ -40,7 +40,7 @@ interface UserActivity {
   id: string
   type: "weather" | "chat" | "news" | "recommendation"
   description: string
-  timestamp: Date
+  timestamp: string // ISO string instead of Date object
   status: "completed" | "pending" | "failed"
 }
 
@@ -120,21 +120,20 @@ export default function HomePage() {
   const addActivity = (activity: Omit<UserActivity, "id" | "timestamp">) => {
     const newActivity: UserActivity = {
       id: Date.now().toString(),
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(), // <-- store as string
       ...activity,
     }
 
     setActivities((prev) => [newActivity, ...prev.slice(0, 9)])
 
-    // Store in localStorage for persistence
-    const storedActivities = JSON.parse(localStorage.getItem("userActivities") || "[]")
-    storedActivities.unshift(newActivity)
-    localStorage.setItem("userActivities", JSON.stringify(storedActivities.slice(0, 50)))
+    const stored = JSON.parse(localStorage.getItem("userActivities") || "[]")
+    stored.unshift(newActivity)
+    localStorage.setItem("userActivities", JSON.stringify(stored.slice(0, 50)))
   }
 
   const loadUserActivities = () => {
-    const storedActivities = JSON.parse(localStorage.getItem("userActivities") || "[]")
-    setActivities(storedActivities.slice(0, 10))
+    const stored: UserActivity[] = JSON.parse(localStorage.getItem("userActivities") || "[]")
+    setActivities(stored.slice(0, 10))
   }
 
   const kelvinToCelsius = (kelvin: number) => Math.round(kelvin - 273.15)
@@ -312,7 +311,7 @@ export default function HomePage() {
                           <p className="text-sm font-medium">{activity.description}</p>
                           <div className="flex items-center text-xs text-muted-foreground">
                             <Clock className="h-3 w-3 mr-1" />
-                            {activity.timestamp.toLocaleTimeString()}
+                            {new Date(activity.timestamp).toLocaleTimeString()}
                           </div>
                         </div>
                       </div>

@@ -1,92 +1,73 @@
-import { NextResponse } from "next/server"
+/**
+ * /api/news  – Fetch agricultural news.
+ * 1. Try remote service (10 s timeout).
+ * 2. If it fails (404, 5xx, network, timeout) return local fallback data.
+ * The route itself ALWAYS responds with status 200.
+ */
 
-export async function GET() {
+import { type NextRequest, NextResponse } from "next/server"
+
+const REMOTE_URL =
+  "https://oevortex-webscout.hf.space/api/news?q=Agriculture%20and%20climate&max_results=15&safesearch=moderate&region=wt-wt"
+const TIMEOUT_MS = 10_000
+
+export async function GET(_req: NextRequest) {
+  // ── 1 ▸ attempt remote call with timeout
   try {
-    const url = "https://oevortex-webscout.hf.space/api/news"
-    const params = new URLSearchParams({
-      q: "Agriculture farming climate crops",
-      max_results: "15",
-      safesearch: "moderate",
-      region: "wt-wt",
+    const ac = new AbortController()
+    const timer = setTimeout(() => ac.abort(), TIMEOUT_MS)
+
+    const res = await fetch(REMOTE_URL, {
+      headers: { accept: "application/json", "User-Agent": "AgriSmart/1.0" },
+      signal: ac.signal,
     })
 
-    const response = await fetch(`${url}?${params}`, {
-      headers: {
-        accept: "application/json",
-        "User-Agent": "AgriSmart/1.0",
-      },
-      timeout: 10000, // 10 second timeout
-    })
+    clearTimeout(timer)
 
-    if (!response.ok) {
-      console.error("News API response not ok:", response.status)
-      // Return fallback news data
-      return NextResponse.json({ news: getFallbackNews() })
+    if (res.ok) {
+      const json = await res.json()
+      const news = formatRemote(json?.results)
+      if (news.length) return NextResponse.json({ news }) // success
+    } else {
+      console.warn("News API responded", res.status) // eslint-disable-line no-console
     }
-
-    const data = await response.json()
-
-    // Format the news data
-    const formattedNews =
-      data.results?.map((item: any) => ({
-        title: item.title || "Agricultural News Update",
-        url: item.url || "#",
-        date: item.date || new Date().toISOString(),
-        snippet:
-          item.snippet ||
-          item.description ||
-          "Stay updated with the latest agricultural developments and farming techniques.",
-      })) || []
-
-    // If no news found, return fallback
-    if (formattedNews.length === 0) {
-      return NextResponse.json({ news: getFallbackNews() })
-    }
-
-    return NextResponse.json({ news: formattedNews })
-  } catch (error) {
-    console.error("News API error:", error)
-    // Return fallback news data when API fails
-    return NextResponse.json({ news: getFallbackNews() })
+  } catch (err) {
+    console.warn("News API fetch failed:", err) // eslint-disable-line no-console
   }
+
+  // ── 2 ▸ remote failed - return fallback
+  return NextResponse.json({ news: FALLBACK_NEWS })
 }
 
-function getFallbackNews() {
-  return [
-    {
-      title: "Sustainable Farming Practices Gain Momentum Worldwide",
-      url: "#",
-      date: new Date().toISOString(),
-      snippet:
-        "Farmers around the globe are increasingly adopting sustainable farming practices to improve soil health and reduce environmental impact. These methods include crop rotation, cover cropping, and integrated pest management.",
-    },
-    {
-      title: "Climate Change Adaptation Strategies for Modern Agriculture",
-      url: "#",
-      date: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-      snippet:
-        "Agricultural experts discuss innovative strategies to help farmers adapt to changing climate conditions, including drought-resistant crops and improved water management systems.",
-    },
-    {
-      title: "Technology Revolution in Precision Agriculture",
-      url: "#",
-      date: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-      snippet:
-        "The integration of IoT sensors, drones, and AI-powered analytics is transforming how farmers monitor crops, optimize irrigation, and predict harvest yields.",
-    },
-    {
-      title: "Organic Farming Market Shows Strong Growth",
-      url: "#",
-      date: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-      snippet:
-        "The global organic farming market continues to expand as consumers increasingly demand sustainably produced food products, creating new opportunities for farmers.",
-    },
-    {
-      title: "Water Conservation Techniques for Drought-Prone Regions",
-      url: "#",
-      date: new Date(Date.now() - 345600000).toISOString(), // 4 days ago
-      snippet:
-        "Innovative water conservation methods, including drip irrigation and rainwater harvesting, are helping farmers in arid regions maintain productive agricultural operations.",
-    },
-  ]
+/* helper – format upstream data into our shape */
+function formatRemote(results: any[] = []) {
+  return results.map((r) => ({
+    title: r.title ?? "Agricultural Update",
+    url: r.url ?? "#",
+    date: r.date ?? new Date().toISOString(),
+    snippet: r.snippet ?? r.description ?? "Latest information on agriculture and climate.",
+  }))
 }
+
+/* simple local articles so UI always has content */
+const FALLBACK_NEWS = [
+  {
+    title: "Sustainable Farming Practices Gain Momentum Worldwide",
+    url: "#",
+    date: new Date().toISOString(),
+    snippet:
+      "Farmers across the globe are adopting sustainable practices to improve soil health and reduce environmental impact.",
+  },
+  {
+    title: "Climate-Smart Agriculture Strategies for 2025",
+    url: "#",
+    date: new Date(Date.now() - 86_400_000).toISOString(), // 1 day ago
+    snippet: "Experts outline actionable steps to help farmers adapt to changing climate conditions.",
+  },
+  {
+    title: "AI & IoT Revolutionise Precision Farming",
+    url: "#",
+    date: new Date(Date.now() - 172_800_000).toISOString(), // 2 days ago
+    snippet: "Advanced sensors and AI analytics are enabling real-time crop monitoring and yield prediction.",
+  },
+]
