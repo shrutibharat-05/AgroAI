@@ -6,14 +6,14 @@ import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950">
       {/* Navigation */}
       <nav className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Leaf className="h-8 w-8 text-green-600" />
-              <span className="ml-2 text-xl font-bold">AgriSmart</span>
+              <span className="ml-2 text-xl font-bold">AgroByte</span>
             </div>
             <div className="flex items-center space-x-4">
               <ThemeToggle />
@@ -31,11 +31,11 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
             Smart Agriculture
             <span className="text-green-600"> Solutions</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
             Get AI-powered crop recommendations, real-time weather updates, and stay informed with the latest
             agricultural news.
           </p>
@@ -55,9 +55,11 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Powerful Features for Modern Farming</h2>
+          <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
+            Powerful Features for Modern Farming
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <Card className="hover:shadow-lg transition-shadow">
               <CardHeader>
@@ -115,7 +117,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Ready to Transform Your Farming?</h2>
           <p className="text-xl text-green-100 mb-8">
-            Join thousands of farmers who are already using AgriSmart to improve their yields and make data-driven
+            Join thousands of farmers who are already using AgroByte to improve their yields and make data-driven
             decisions.
           </p>
           <Link href="/register">
@@ -133,7 +135,7 @@ export default function LandingPage() {
             <div>
               <div className="flex items-center mb-4">
                 <Leaf className="h-8 w-8 text-green-500" />
-                <span className="ml-2 text-xl font-bold">AgriSmart</span>
+                <span className="ml-2 text-xl font-bold">AgroByte</span>
               </div>
               <p className="text-gray-400">Empowering farmers with smart technology and data-driven insights.</p>
             </div>
@@ -166,7 +168,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 AgriSmart. All rights reserved.</p>
+            <p>&copy; 2024 AgroByte. All rights reserved.</p>
           </div>
         </div>
       </footer>

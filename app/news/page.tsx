@@ -1,334 +1,259 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Calendar, ExternalLink, Leaf, Newspaper, RefreshCw, Globe, Clock, User } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Leaf, ArrowLeft, ExternalLink, RefreshCw, Clock, Eye, AlertCircle } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-interface NewsItem {
+interface NewsArticle {
   title: string
+  description: string
   url: string
-  date: string
-  snippet: string
-  source?: string
-  imageUrl?: string
-  author?: string
+  urlToImage?: string
+  publishedAt: string
+  source: {
+    name: string
+  }
+}
+
+interface NewsResponse {
+  articles: NewsArticle[]
+  totalResults: number
+  status: string
 }
 
 export default function NewsPage() {
-  const [news, setNews] = useState<NewsItem[]>([])
+  const [articles, setArticles] = useState<NewsArticle[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  // Add activity tracking
+  const addActivity = (description: string) => {
+    const newActivity = {
+      id: Date.now().toString(),
+      type: "news",
+      description,
+      timestamp: new Date().toISOString(),
+      status: "completed",
+    }
+
+    const existingActivities = JSON.parse(localStorage.getItem("userActivities") || "[]")
+    const updatedActivities = [newActivity, ...existingActivities.slice(0, 9)]
+    localStorage.setItem("userActivities", JSON.stringify(updatedActivities))
+  }
 
   const fetchNews = async () => {
     setLoading(true)
     setError("")
 
     try {
-      const res = await fetch("/api/news", {
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache",
-        },
-      })
+      const response = await fetch("/api/news")
 
-      if (!res.ok) {
-        throw new Error(`Request failed (${res.status})`)
+      if (!response.ok) {
+        throw new Error("Failed to fetch news")
       }
 
-      const data = await res.json()
-
-      if (data.news && data.news.length > 0) {
-        setNews(data.news)
-        setLastUpdated(new Date())
-
-        // Track activity
-        const activities = JSON.parse(localStorage.getItem("userActivities") || "[]")
-        activities.unshift({
-          id: Date.now(),
-          type: "news",
-          description: `Loaded ${data.news.length} latest agricultural news articles`,
-          timestamp: new Date().toISOString(),
-          status: "completed",
-        })
-        localStorage.setItem("userActivities", JSON.stringify(activities.slice(0, 50)))
-      } else {
-        setError("No news articles available at the moment.")
-      }
+      const data: NewsResponse = await response.json()
+      setArticles(data.articles || [])
+      setLastUpdated(new Date())
+      addActivity(`Checked ${data.articles?.length || 0} news articles`)
     } catch (err) {
-      setError("Could not load real-time news. Please check your connection and try again.")
+      setError("Unable to load news. Please try again.")
       console.error("News fetch error:", err)
     } finally {
       setLoading(false)
     }
   }
 
-  // Auto-refresh news every 10 minutes
   useEffect(() => {
     fetchNews()
 
-    const interval = setInterval(
-      () => {
-        fetchNews()
-      },
-      10 * 60 * 1000,
-    ) // 10 minutes
-
+    // Auto-refresh every 10 minutes
+    const interval = setInterval(fetchNews, 10 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
 
-  const formatDate = (iso: string) => {
-    try {
-      const date = new Date(iso)
-      const now = new Date()
-      const diffMs = now.getTime() - date.getTime()
-      const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-      const diffDays = Math.floor(diffHours / 24)
-
-      if (diffHours < 1) return "Just now"
-      if (diffHours < 24) return `${diffHours}h ago`
-      if (diffDays < 7) return `${diffDays}d ago`
-
-      return date.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    } catch {
-      return "Recent"
-    }
+  const handleArticleClick = (article: NewsArticle) => {
+    addActivity(`Read article: "${article.title.substring(0, 50)}${article.title.length > 50 ? "..." : ""}"`)
   }
 
-  const handleArticleClick = (article: NewsItem) => {
-    // Validate URL before opening
-    if (!article.url || article.url === "#" || article.url.includes("removed.com")) {
-      console.warn("Invalid article URL:", article.url)
-      return
-    }
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
 
-    // Track click activity
-    const activities = JSON.parse(localStorage.getItem("userActivities") || "[]")
-    activities.unshift({
-      id: Date.now(),
-      type: "news",
-      description: `Read article: ${article.title.substring(0, 50)}...`,
-      timestamp: new Date().toISOString(),
-      status: "completed",
-    })
-    localStorage.setItem("userActivities", JSON.stringify(activities.slice(0, 50)))
-
-    // Open article in new tab
-    try {
-      window.open(article.url, "_blank", "noopener,noreferrer")
-    } catch (error) {
-      console.error("Error opening article:", error)
-    }
+    if (diffInHours < 1) return "Just now"
+    if (diffInHours < 24) return `${diffInHours}h ago`
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays < 7) return `${diffInDays}d ago`
+    return date.toLocaleDateString()
   }
 
   const isValidUrl = (url: string) => {
-    return url && url !== "#" && !url.includes("removed.com") && url.startsWith("http")
+    try {
+      new URL(url)
+      return !url.includes("removed.com")
+    } catch {
+      return false
+    }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950">
       {/* Navigation */}
       <nav className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between h-16 items-center">
-          <Link href="/home" className="flex items-center hover:opacity-80 transition-opacity">
-            <ArrowLeft className="h-5 w-5 text-muted-foreground mr-2" />
-            <Leaf className="h-8 w-8 text-green-600" />
-            <span className="ml-2 text-xl font-bold">AgriSmart</span>
-          </Link>
-          <div className="flex items-center gap-4">
-            {lastUpdated && (
-              <div className="hidden sm:flex items-center text-sm text-muted-foreground">
-                <Clock className="h-4 w-4 mr-1" />
-                Updated {formatDate(lastUpdated.toISOString())}
-              </div>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchNews}
-              disabled={loading}
-              className="flex items-center gap-2 bg-transparent"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-            <ThemeToggle />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Link href="/home">
+                <Button variant="ghost" size="sm">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+              </Link>
+              <Leaf className="h-8 w-8 text-green-600" />
+              <span className="text-xl font-bold">AgroByte News</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <header className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Globe className="h-8 w-8 text-green-600" />
-            <h1 className="text-3xl font-bold">Real-Time Agricultural News</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Agricultural News</h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Stay updated with the latest news in agriculture and farming
+            </p>
           </div>
-          <p className="text-muted-foreground">Live updates from NewsAPI and trusted agricultural sources</p>
-          <div className="flex items-center justify-center gap-4 mt-4">
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20">
-              <div className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-              Live Feed
-            </Badge>
-            <Badge variant="outline">{news.length} Articles</Badge>
+          <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+            {lastUpdated && (
+              <div className="flex items-center text-sm text-gray-500">
+                <Clock className="h-4 w-4 mr-1" />
+                Updated {lastUpdated.toLocaleTimeString()}
+              </div>
+            )}
+            <Button onClick={fetchNews} disabled={loading} variant="outline">
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
           </div>
-        </header>
+        </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-            <p className="mt-4 text-muted-foreground">Fetching latest news from NewsAPI...</p>
+        {/* Live Indicator */}
+        <div className="flex items-center space-x-2 mb-6">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Live Feed</span>
           </div>
-        )}
+          <Badge variant="secondary">{articles.length} Articles</Badge>
+        </div>
 
         {/* Error State */}
-        {error && !loading && (
-          <Card className="max-w-lg mx-auto border-red-200 bg-red-50 dark:bg-red-900/20">
-            <CardContent className="p-6 text-center">
-              <Newspaper className="h-12 w-12 text-red-400 mx-auto mb-4" />
-              <p className="text-red-600 mb-4">{error}</p>
-              <Button onClick={fetchNews} variant="outline" className="flex items-center gap-2 bg-transparent">
-                <RefreshCw className="h-4 w-4" />
-                Try Again
-              </Button>
+        {error && (
+          <Card className="mb-6 border-red-200 bg-red-50 dark:bg-red-950 dark:border-red-800">
+            <CardContent className="p-4">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+                <p className="text-red-800 dark:text-red-200">{error}</p>
+                <Button onClick={fetchNews} size="sm" variant="outline">
+                  Try Again
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        {/* News Articles */}
-        {!loading && !error && news.length > 0 && (
-          <section className="space-y-6">
-            {news.map((article, i) => (
-              <Card
-                key={i}
-                className={`hover:shadow-lg transition-all duration-200 hover:scale-[1.01] group ${
-                  isValidUrl(article.url) ? "cursor-pointer" : "cursor-default opacity-75"
-                }`}
-                onClick={() => isValidUrl(article.url) && handleArticleClick(article)}
-              >
+        {/* Loading State */}
+        {loading && articles.length === 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
                 <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        {article.source && (
-                          <Badge variant="secondary" className="text-xs">
-                            {article.source}
-                          </Badge>
-                        )}
-                        <Badge
-                          variant="outline"
-                          className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20"
-                        >
-                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
-                          Live
-                        </Badge>
-                        {!isValidUrl(article.url) && (
-                          <Badge variant="destructive" className="text-xs">
-                            Link Unavailable
-                          </Badge>
-                        )}
-                      </div>
-                      <CardTitle className="text-xl mb-2 line-clamp-2 group-hover:text-green-600 transition-colors">
-                        {article.title}
-                      </CardTitle>
-                      <div className="flex items-center text-sm text-muted-foreground mb-2 flex-wrap gap-4">
-                        <div className="flex items-center">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          {formatDate(article.date)}
-                        </div>
-                        {article.author && (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 mr-1" />
-                            {article.author}
-                          </div>
-                        )}
-                        {isValidUrl(article.url) && (
-                          <ExternalLink className="h-4 w-4 opacity-60 group-hover:opacity-100 transition-opacity" />
-                        )}
-                      </div>
-                    </div>
-                    {article.imageUrl && (
-                      <div className="ml-4 flex-shrink-0">
-                        <img
-                          src={article.imageUrl || "/placeholder.svg"}
-                          alt=""
-                          className="w-24 h-24 object-cover rounded-lg"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none"
-                          }}
-                        />
-                      </div>
-                    )}
-                  </div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="text-base mb-4 line-clamp-3 leading-relaxed">
-                    {article.snippet}
-                  </CardDescription>
-                  <div className="flex justify-between items-center">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className={`flex items-center gap-2 transition-colors pointer-events-none ${
-                        isValidUrl(article.url)
-                          ? "hover:bg-green-50 hover:border-green-300"
-                          : "opacity-50 cursor-not-allowed"
-                      }`}
-                      disabled={!isValidUrl(article.url)}
-                    >
-                      {isValidUrl(article.url) ? "Read Full Article" : "Article Unavailable"}
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                    {isValidUrl(article.url) && (
-                      <div className="text-xs text-muted-foreground">Click anywhere to read</div>
-                    )}
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
                   </div>
                 </CardContent>
               </Card>
             ))}
-          </section>
+          </div>
+        )}
+
+        {/* News Articles */}
+        {!loading && articles.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {articles.map((article, index) => (
+              <Card key={index} className="hover:shadow-lg transition-shadow group">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <Badge variant="outline" className="mb-2">
+                      {article.source.name}
+                    </Badge>
+                    <span className="text-xs text-gray-500">{formatTimeAgo(article.publishedAt)}</span>
+                  </div>
+                  <CardTitle className="text-lg leading-tight group-hover:text-green-600 transition-colors">
+                    {article.title}
+                  </CardTitle>
+                  <CardDescription className="line-clamp-3">{article.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    {isValidUrl(article.url) ? (
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => handleArticleClick(article)}
+                        className="flex items-center text-green-600 hover:text-green-700 text-sm font-medium"
+                      >
+                        Read Article
+                        <ExternalLink className="h-4 w-4 ml-1" />
+                      </a>
+                    ) : (
+                      <span className="flex items-center text-gray-400 text-sm">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        Link Unavailable
+                      </span>
+                    )}
+                    <div className="flex items-center text-gray-500 text-xs">
+                      <Eye className="h-3 w-3 mr-1" />
+                      {Math.floor(Math.random() * 1000) + 100}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
 
         {/* Empty State */}
-        {!loading && !error && news.length === 0 && (
-          <Card className="max-w-lg mx-auto">
-            <CardContent className="p-6 text-center">
-              <Newspaper className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">No news articles available at the moment.</p>
-              <Button onClick={fetchNews} variant="outline">
-                Refresh News
+        {!loading && articles.length === 0 && !error && (
+          <Card className="text-center py-12">
+            <CardContent>
+              <Leaf className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No articles available</h3>
+              <p className="text-gray-500 mb-4">We're having trouble loading the latest news. Please try again.</p>
+              <Button onClick={fetchNews}>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reload News
               </Button>
             </CardContent>
           </Card>
         )}
-
-        {/* API Status Info */}
-        {!loading && !error && news.length > 0 && (
-          <section className="mt-12">
-            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Globe className="h-5 w-5 text-blue-600" />
-                  News Sources
-                </CardTitle>
-                <CardDescription>
-                  Powered by NewsAPI.org with your API key, supplemented by RSS feeds from Agriculture.com, Farm
-                  Progress, and other trusted agricultural sources. All articles link to original sources.
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </section>
-        )}
-      </main>
+      </div>
     </div>
   )
 }

@@ -7,9 +7,9 @@ import { ThemeProvider } from "@/components/theme-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "AgriSmart - Smart Agriculture Solutions",
+  title: "AgroByte - Smart Agriculture Solutions",
   description: "AI-powered agricultural platform with weather monitoring, crop recommendations, and farming insights",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
